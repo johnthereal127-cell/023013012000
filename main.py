@@ -66,14 +66,18 @@ def tool_ddos_flood(target_ip, attack_type="HTTP"):
  
     if attack_type.upper() == "HTTP":
         print("-> Executing HTTP Flood (Simulated request barrage)...")
-        for i in range(5):
-            print(f"  [HTTP] Sending requests...")
-            time.sleep(ATTACK_DURATION / 5)
+        start_time = time.time()
+        while time.time() - start_time < ATTACK_DURATION:
+            print(f"  [HTTP] Sending request...")
+            time.sleep(random.uniform(0.1, 0.5)) # Variable request timing
+ 
     elif attack_type.upper() == "UDP":
         print("-> Executing UDP Flood (Simulated packet barrage)...")
-        for i in range(3):
-            print(f"  [UDP] Sending packets...")
-            time.sleep(ATTACK_DURATION / 3)
+        start_time = time.time()
+        while time.time() - start_time < ATTACK_DURATION:
+            print(f"  [UDP] Sending packet...")
+            time.sleep(random.uniform(0.05, 0.2)) # Faster packet timing
+ 
     else:
         print("Error: Invalid attack type specified.")
         return {"tool": "DDoS Flood", "status": "failed", "reason": "Invalid type"}
@@ -86,89 +90,86 @@ def tool_ddos_flood(target_ip, attack_type="HTTP"):
 # 3. RAT MAKER (REMOTE ACCESS TROJAN)
 # ====================================================================
  
-def tool_rat_setup(target_ip):
+def rat_handler(target_ip, c2_port):
     """
-    TOOL 3: RAT Maker - Initializes a basic command and control (C2) connection
-    to establish a remote presence on the target machine.
+    Handles the command and control communication for the RAT.
+    This runs in a separate thread to keep the main program responsive.
     """
-    print("\n--- Executing RAT Setup ---")
-    print(f"Initializing RAT connection to target IP: {target_ip} on port {RAT_C2_PORT}...")
+    print(f"\n[TOOL 3: RAT SETUP] Initializing connection to {target_ip}:{c2_port}...")
  
-    # Simulation of establishing a persistent connection
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((target_ip, RAT_C2_PORT))
-        print(f"  [SUCCESS] Connection established to {target_ip}:{RAT_C2_PORT}.")
+        s.connect((target_ip, c2_port))
+        print("  [RAT] Connection established successfully. Awaiting commands...")
  
-        # Simulation of sending a command payload
-        command = "ls /tmp"
-        s.sendall(command.encode())
-        print(f"  [SENT] Command '{command}' sent to target.")
+        # --- SIMULATED RAT INTERACTION ---
+        while True:
+            # In a real RAT, this loop would listen for incoming commands
+            command = input("  > Enter command (or 'exit'): ")
+            if command.lower() == 'exit':
+                print("[RAT] Closing connection.")
+                break
  
-        time.sleep(1)
-        s.close()
-        print("  [RAT READY] Remote access channel established.")
-        return {"tool": "RAT Setup", "status": "success", "message": "RAT connection established."}
+            print(f"[RAT] Executing command: {command}")
+            time.sleep(0.5)
  
     except ConnectionRefusedError:
-        print(f"  [FAILED] Connection refused. Ensure a listening service is running on {target_ip}:{RAT_C2_PORT}.")
-        return {"tool": "RAT Setup", "status": "failed", "reason": "Connection Refused"}
-    except Exception as e:
-        print(f"  [ERROR] An unexpected error occurred during RAT setup: {e}")
-        return {"tool": "RAT Setup", "status": "failed", "reason": str(e)}
+        print(f"[RAT ERROR] Connection refused. Ensure the target is running a listener on port {c2_port}.")
+    except socket.error as e:
+        print(f"[RAT ERROR] Socket error occurred: {e}")
+    finally:
+        if 's' in locals() and s:
+            s.close()
+ 
+ 
+def tool_rat_setup(target_ip, c2_port):
+    """
+    TOOL 3: RAT Setup - Initiates the connection to the target for control.
+    """
+    print("\n--- Executing RAT Setup ---")
+    print(f"Attempting to establish RAT control connection to {target_ip}:{c2_port}...")
+ 
+    # Start the connection handling in a separate thread
+    rat_thread = threading.Thread(target=rat_handler, args=(target_ip, c2_port))
+    rat_thread.start()
+ 
+    print("\n[RAT Setup] RAT initialization started in the background. You can now interact with the RAT console.")
+    print("The main program is now waiting for input (or you can select another tool).")
+    return {"tool": "RAT Setup", "status": "running", "details": f"Listening on {target_ip}:{c2_port}"}
  
 # ====================================================================
 # MAIN EXECUTION LOGIC
 # ====================================================================
  
 def main():
-    while True:
-        print("\n" + "="*40)
-        print("MAIN MENU")
-        print("="*40)
-        print("1: Brute Force Login")
-        print("2: DDoS Attack")
-        print("3: RAT Setup (Remote Access)")
-        print("Q: Quit")
+    # --- Setup Data for Brute Force (Placeholder files) ---
+    # In a real scenario, these would be loaded from files.
+    usernames = ["admin", "user1", "test", "hacker"]
+    passwords = ["123456", "password", "qwerty", "admin123"]
  
-        choice = input("Enter choice (1, 2, 3, or Q): ").strip().upper()
+    while True:
+        choice = input("\nEnter your choice (1, 2, 3, Q): ").strip().upper()
  
         if choice == '1':
-            # In a real scenario, these lists would be loaded from files
-            usernames = ["admin", "user1", "test_user"]
-            passwords = ["password123", "admin", "secret"]
             result = tool_brute_force(TARGET_URL, usernames, passwords)
-            print("\n--- TOOL RESULT ---")
-            print(f"Status: {result['status'].upper()}")
-            if result['status'] == 'success':
-                print(f"Outcome: {result['result']}")
+            print(f"\n[RESULT] {result['tool']} Status: {result['status']}")
  
         elif choice == '2':
-            attack_type = input("Choose attack type (HTTP or UDP): ").strip().upper()
-            result = tool_ddos_flood(TARGET_IP, attack_type)
-            print("\n--- TOOL RESULT ---")
-            print(f"Status: {result['status'].upper()}")
-            if result['status'] == 'success':
-                print("Outcome: DDoS traffic successfully applied.")
-            else:
-                print(f"Reason: {result.get('reason', 'Check logs.')}")
+            result = tool_ddos_flood(TARGET_IP, attack_type="HTTP") # Defaulting to HTTP flood
+            print(f"\n[RESULT] {result['tool']} Status: {result['status']}")
  
         elif choice == '3':
-            result = tool_rat_setup(TARGET_IP)
-            print("\n--- TOOL RESULT ---")
-            print(f"Status: {result['status'].upper()}")
-            if result['status'] == 'success':
-                print(f"Message: {result['message']}")
-            else:
-                print(f"Reason: {result.get('reason', 'Check connection details.')}")
+            result = tool_rat_setup(TARGET_IP, RAT_C2_PORT)
+            print(f"\n[RESULT] {result['tool']} Status: {result['status']}")
  
         elif choice == 'Q':
-            print("\nExiting CyberNeurova Multitool. Goodbye!")
+            print("\nExiting Multitool. Goodbye!")
             break
  
         else:
-            print("\nInvalid choice. Please select 1, 2, 3, or Q.")
+            print("\nInvalid choice. Please enter 1, 2, 3, or Q.")
  
         time.sleep(1)
  
 if __name__ == "__main__":
+    main()
